@@ -18,6 +18,11 @@ float carX[3] = { -0.6f, 0.0f, 0.6f }; // Lane positions
 float carY[3] = { 1.0f, 1.5f, 2.0f };  // Starting positions
 float carSpeed[3] = { 0.01f, 0.015f, 0.02f }; // Speeds
 
+// Stars properties (for the background effect)
+float starX[100];  // x-coordinates of the stars
+float starY[100];  // y-coordinates of the stars
+float starSpeed = 0.005f; // Speed of the stars
+
 // Game state
 bool gameOver = false;
 float score = 0.0f; // Time-based score
@@ -40,6 +45,14 @@ void drawText(const char* text, float x, float y) {
     }
 }
 
+// Function to initialize stars
+void initializeStars() {
+    for (int i = 0; i < 100; i++) {
+        starX[i] = (rand() % 20 - 10) / 10.0f;  // Random x position in range [-1.0, 1.0]
+        starY[i] = (rand() % 20) / 10.0f - 1.0f;  // Random y position in range [-1.0, 1.0]
+    }
+}
+
 // Function to display the scene
 void display() {
     glClear(GL_COLOR_BUFFER_BIT);
@@ -53,6 +66,12 @@ void display() {
         glColor3f(1.0f, 0.0f, 0.0f); // Red
         for (int i = 0; i < 3; i++) {
             drawRectangle(carX[i], carY[i], 0.1f, 0.05f);
+        }
+
+        // Draw the stars
+        glColor3f(1.0f, 1.0f, 1.0f); // White
+        for (int i = 0; i < 100; i++) {
+            drawRectangle(starX[i], starY[i], 0.01f, 0.01f); // Small dots
         }
 
         // Display the score
@@ -85,6 +104,14 @@ void update(int value) {
             if (carY[i] < -1.0f) {
                 carY[i] = 1.0f;
                 carX[i] = ((rand() % 3) - 1) * 0.6f; // Randomize lane
+            }
+        }
+
+        // Move stars downward
+        for (int i = 0; i < 100; i++) {
+            starY[i] -= starSpeed;
+            if (starY[i] < -1.0f) {
+                starY[i] = 1.0f; // Reset star to top when it reaches the bottom
             }
         }
 
@@ -172,6 +199,8 @@ void init() {
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     gluOrtho2D(-1.0, 1.0, -1.0, 1.0); // Set the coordinate system
+
+    initializeStars();  // Initialize stars positions
 }
 
 int main(int argc, char **argv) {
