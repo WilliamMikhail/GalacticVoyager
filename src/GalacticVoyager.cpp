@@ -1,31 +1,37 @@
 #include <GLUT/glut.h>
 #include <cstdlib>
 #include <ctime>
+#include <vector>
+#include <algorithm>
 #include <iostream>
 
 // Character properties
 float characterX = 0.0f, characterY = -0.8f;
 float characterSize = 0.05f;
-float targetX = 0.0f; // Target position for smooth movement
-float glideSpeed = 0.05f; // Speed of the glide
+float glideSpeed = 0.02f;
 
-// Key states
+// Movement states
 bool movingLeft = false;
 bool movingRight = false;
 
-// Obstacle properties
-float carX[3] = { -0.6f, 0.0f, 0.6f }; // Lane positions
-float carY[3] = { 1.0f, 1.5f, 2.0f };  // Starting positions
-float carSpeed[3] = { 0.01f, 0.015f, 0.02f }; // Speeds
+// Obstacles (blocks)
+struct Block {
+    float x, y, speed;
+};
+std::vector<Block> blocks;
+float blockSpawnInterval = 2.0f; // Seconds between block spawns
+float timeSinceLastSpawn = 0.0f;
 
-// Stars properties (for the background effect)
-float starX[100];  // x-coordinates of the stars
-float starY[100];  // y-coordinates of the stars
-float starSpeed = 0.005f; // Speed of the stars
+// Background stars (parallax effect)
+const int STAR_LAYERS = 3;
+const int STARS_PER_LAYER = 100;
+float starX[STAR_LAYERS][STARS_PER_LAYER];
+float starY[STAR_LAYERS][STARS_PER_LAYER];
+float starSpeeds[STAR_LAYERS] = { 0.005f, 0.003f, 0.001f };
 
 // Game state
 bool gameOver = false;
-float score = 0.0f; // Time-based score
+float score = 0.0f;
 
 // Function to draw a rectangle
 void drawRectangle(float x, float y, float width, float height) {
@@ -37,6 +43,13 @@ void drawRectangle(float x, float y, float width, float height) {
     glEnd();
 }
 
+// Function to draw stars
+void drawStar(float x, float y) {
+    glBegin(GL_POINTS);
+    glVertex2f(x, y);
+    glEnd();
+}
+
 // Function to display text on screen
 void drawText(const char* text, float x, float y) {
     glRasterPos2f(x, y);
@@ -45,179 +58,148 @@ void drawText(const char* text, float x, float y) {
     }
 }
 
-// Function to initialize stars
-void initializeStars() {
-    for (int i = 0; i < 100; i++) {
-        starX[i] = (rand() % 20 - 10) / 10.0f;  // Random x position in range [-1.0, 1.0]
-        starY[i] = (rand() % 20) / 10.0f - 1.0f;  // Random y position in range [-1.0, 1.0]
-    }
-}
-
-// Function to display the scene
+// Display function
 void display() {
     glClear(GL_COLOR_BUFFER_BIT);
 
+    // Draw stars for parallax background
+    glColor3f(1.0f, 1.0f, 1.0f);
+    for (int layer = 0; layer < STAR_LAYERS; layer++) {
+        for (int i = 0; i < STARS_PER_LAYER; i++) {
+            drawStar(starX[layer][i], starY[layer][i]);
+        }
+    }
+
     if (!gameOver) {
         // Draw the player character
-        glColor3f(0.0f, 1.0f, 0.0f); // Green
+        glColor3f(0.0f, 1.0f, 0.0f);
         drawRectangle(characterX, characterY, characterSize, characterSize);
 
-        // Draw the cars
-        glColor3f(1.0f, 0.0f, 0.0f); // Red
-        for (int i = 0; i < 3; i++) {
-            drawRectangle(carX[i], carY[i], 0.1f, 0.05f);
+        // Draw blocks (obstacles)
+        glColor3f(1.0f, 0.0f, 0.0f);
+        for (const auto& block : blocks) {
+            drawRectangle(block.x, block.y, 0.1f, 0.05f);
         }
 
-        // Draw the stars
-        glColor3f(1.0f, 1.0f, 1.0f); // White
-        for (int i = 0; i < 100; i++) {
-            drawRectangle(starX[i], starY[i], 0.01f, 0.01f); // Small dots
-        }
-
-        // Display the score
-        glColor3f(1.0f, 1.0f, 1.0f); // White
+        // Display score
+        glColor3f(1.0f, 1.0f, 1.0f);
         char scoreText[20];
         sprintf(scoreText, "Score: %.1f", score);
         drawText(scoreText, -0.9f, 0.9f);
-
     } else {
-        // Game Over message
-        glColor3f(1.0f, 1.0f, 1.0f); // White
+        // Game over screen
+        glColor3f(1.0f, 1.0f, 1.0f);
         drawText("Game Over!", -0.2f, 0.2f);
-
-        char finalScoreText[30];
-        sprintf(finalScoreText, "Final Score: %.1f", score);
-        drawText(finalScoreText, -0.3f, 0.1f);
+        char finalScore[30];
+        sprintf(finalScore, "Final Score: %.1f", score);
+        drawText(finalScore, -0.3f, 0.1f);
         drawText("Press R to Restart", -0.3f, 0.0f);
-        drawText("Press E to Exit Game", -0.3f, -0.2f);
+        drawText("Press E to Exit", -0.3f, -0.2f);
     }
 
     glFlush();
 }
 
-// Function to update the scene
+// Update function
 void update(int value) {
     if (!gameOver) {
-        // Move cars downward
-        for (int i = 0; i < 3; i++) {
-            carY[i] -= carSpeed[i];
-            if (carY[i] < -1.0f) {
-                carY[i] = 1.0f;
-                carX[i] = ((rand() % 3) - 1) * 0.6f; // Randomize lane
+        // Update stars for parallax effect
+        for (int layer = 0; layer < STAR_LAYERS; layer++) {
+            for (int i = 0; i < STARS_PER_LAYER; i++) {
+                starY[layer][i] -= starSpeeds[layer];
+                if (starY[layer][i] < -1.0f) {
+                    starY[layer][i] = 1.0f;
+                    starX[layer][i] = ((rand() % 200) - 100) / 100.0f;
+                }
             }
         }
 
-        // Move stars downward
-        for (int i = 0; i < 100; i++) {
-            starY[i] -= starSpeed;
-            if (starY[i] < -1.0f) {
-                starY[i] = 1.0f; // Reset star to top when it reaches the bottom
-            }
+        // Update blocks (falling obstacles)
+        for (auto& block : blocks) {
+            block.y -= block.speed;
+        }
+        blocks.erase(std::remove_if(blocks.begin(), blocks.end(),
+            [](const Block& b) { return b.y < -1.0f; }),
+            blocks.end());
+
+        // Spawn new blocks
+        timeSinceLastSpawn += 0.016f;
+        if (timeSinceLastSpawn >= blockSpawnInterval) {
+            timeSinceLastSpawn = 0.0f;
+            float randomX = ((rand() % 200) - 100) / 100.0f;
+            blocks.push_back({ randomX, 1.0f, 0.03f });
         }
 
         // Check for collisions
-        for (int i = 0; i < 3; i++) {
-            if (characterY < carY[i] + 0.05f && characterY > carY[i] - 0.05f &&
-                characterX < carX[i] + 0.05f && characterX > carX[i] - 0.05f) {
+        for (const auto& block : blocks) {
+            if (abs(characterX - block.x) < 0.075f && abs(characterY - block.y) < 0.05f) {
                 gameOver = true;
             }
         }
 
         // Increment score
-        score += 0.016f; // Increment based on time (~60 FPS)
+        score += 0.016f;
 
-        // Glide the character smoothly towards the target position
-        if (movingLeft) {
-            targetX -= glideSpeed;
-            if (targetX < -0.9f) targetX = -0.9f; // Boundary check
-        }
-        if (movingRight) {
-            targetX += glideSpeed;
-            if (targetX > 0.9f) targetX = 0.9f; // Boundary check
-        }
-
-        // Move the character smoothly towards the target position
-        if (characterX < targetX) {
-            characterX += glideSpeed;
-            if (characterX > targetX) characterX = targetX; // Stop when the target is reached
-        } else if (characterX > targetX) {
-            characterX -= glideSpeed;
-            if (characterX < targetX) characterX = targetX; // Stop when the target is reached
-        }
+        // Update character position
+        if (movingLeft) characterX -= glideSpeed;
+        if (movingRight) characterX += glideSpeed;
+        characterX = std::clamp(characterX, -0.9f, 0.9f);
 
         glutPostRedisplay();
-        glutTimerFunc(16, update, 0); // Call update every 16ms (~60 FPS)
     }
+    glutTimerFunc(16, update, 0);
 }
 
-// Function to handle keyboard input (special keys)
-void handleSpecialKeys(int key, int x, int y) {
-    if (!gameOver) {
-        switch (key) {
-            case GLUT_KEY_LEFT: // Left arrow key
-                movingLeft = true;
-                break;
-
-            case GLUT_KEY_RIGHT: // Right arrow key
-                movingRight = true;
-                break;
-        }
-    }
-}
-
-// Function to handle keyboard input (regular keys)
-void handleRegularKeys(unsigned char key, int x, int y) {
-    if (key == 27) { // Escape key
-        gameOver = true; // Trigger the pause menu
-    } else if (key == 'r' || key == 'R') { // Restart the game
+// Handle keyboard input
+void handleKeys(unsigned char key, int x, int y) {
+    if (key == 'r' || key == 'R') { // Restart
         if (gameOver) {
             characterX = 0.0f;
-            characterY = -0.8f;
-            for (int i = 0; i < 3; i++) carY[i] = 1.0f + i * 0.5f; // Reset cars
+            blocks.clear();
             score = 0.0f;
             gameOver = false;
-            glutTimerFunc(16, update, 0); // Restart the update loop
         }
-    } else if (key == 'e' || key == 'E') { // Exit the game
-        exit(0); // Terminate the program
+    } else if (key == 'e' || key == 'E') { // Exit
+        exit(0);
     }
 }
 
-// Function to handle key release
-void handleKeyUp(int key, int x, int y) {
-    if (key == GLUT_KEY_LEFT) {
-        movingLeft = false;
-    }
-    if (key == GLUT_KEY_RIGHT) {
-        movingRight = false;
-    }
+void handleSpecialKeys(int key, int x, int y) {
+    if (key == GLUT_KEY_LEFT) movingLeft = true;
+    if (key == GLUT_KEY_RIGHT) movingRight = true;
 }
 
-// Initialize OpenGL settings
+void handleSpecialKeyUp(int key, int x, int y) {
+    if (key == GLUT_KEY_LEFT) movingLeft = false;
+    if (key == GLUT_KEY_RIGHT) movingRight = false;
+}
+
+// Initialize the game
 void init() {
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Black background
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    gluOrtho2D(-1.0, 1.0, -1.0, 1.0); // Set the coordinate system
-
-    initializeStars();  // Initialize stars positions
-}
-
-int main(int argc, char **argv) {
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    gluOrtho2D(-1.0, 1.0, -1.0, 1.0);
     srand(static_cast<unsigned>(time(0)));
 
+    // Initialize stars
+    for (int layer = 0; layer < STAR_LAYERS; layer++) {
+        for (int i = 0; i < STARS_PER_LAYER; i++) {
+            starX[layer][i] = ((rand() % 200) - 100) / 100.0f;
+            starY[layer][i] = ((rand() % 200) - 100) / 100.0f;
+        }
+    }
+}
+
+int main(int argc, char** argv) {
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB);
-    glutInitWindowSize(500, 500);
-    glutCreateWindow("Smooth Glide Movement");
-
+    glutInitWindowSize(800, 600);
+    glutCreateWindow("Falling Blocks Game");
     init();
     glutDisplayFunc(display);
-    glutSpecialFunc(handleSpecialKeys); // Handle special keys (arrow keys)
-    glutKeyboardFunc(handleRegularKeys); // Handle regular keys (esc, r, e, etc.)
-    glutSpecialUpFunc(handleKeyUp); // Handle key release
-    glutTimerFunc(16, update, 0); // Start the update loop
+    glutTimerFunc(16, update, 0);
+    glutKeyboardFunc(handleKeys);
+    glutSpecialFunc(handleSpecialKeys);
+    glutSpecialUpFunc(handleSpecialKeyUp);
     glutMainLoop();
-
     return 0;
 }
