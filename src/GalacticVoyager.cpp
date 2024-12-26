@@ -8,7 +8,7 @@
 float characterX = 0.0f, characterY = -0.8f;
 float characterSize = 0.05f;
 float targetX = 0.0f; // Target position for smooth movement
-float glideSpeed = 0.05f; // Speed of the glide
+float glideSpeed = 0.02f; // Speed of the glide
 
 // Key states
 bool movingLeft = false;
@@ -112,13 +112,13 @@ void update(int value) {
         }
 
         // Move cars downward
-        for (size_t i = 0; i < carX.size(); i++) {
-            carY[i] -= carSpeed[i];
-            if (carY[i] < -1.0f) {
-                carY[i] = 1.0f;
-                carX[i] = ((rand() % 3) - 1) * 0.6f; // Randomize lane
-            }
-        }
+       for (size_t i = 0; i < carX.size(); i++) {
+    carY[i] -= carSpeed[i];
+    if (carY[i] < -1.0f) {
+        carY[i] = 1.0f;
+        carX[i] = -1.0f + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 2.0f)); // Randomize position across the screen
+    }
+}
 
         // Check for collisions
         for (size_t i = 0; i < carX.size(); i++) {
@@ -141,14 +141,14 @@ void update(int value) {
             if (targetX > 0.9f) targetX = 0.9f; // Boundary check
         }
 
-        // Move the character smoothly towards the target position
+        //Move the character smoothly towards the target position
         if (characterX < targetX) {
             characterX += glideSpeed;
             if (characterX > targetX) characterX = targetX; // Stop when the target is reached
         } else if (characterX > targetX) {
             characterX -= glideSpeed;
             if (characterX < targetX) characterX = targetX; // Stop when the target is reached
-        }
+        }  
 
         glutPostRedisplay();
         glutTimerFunc(16, update, 0); // Call update every 16ms (~60 FPS)
@@ -165,8 +165,7 @@ void spawnCar(int value) {
         float newCarY = 1.0f;  // Initial spawn at the top
 
         // Randomize speed: Vary the speed more for unpredictability
-        float newCarSpeed = 0.005f + static_cast<float>(rand() % 30) / 1000.0f;  // Speed from 0.005 to 0.035
-
+        float newCarSpeed = 0.01f + static_cast<float>(rand() % 16) / 1000.0f; // Speed from 0.01 to 0.025
         // Add car properties to the vectors
         carX.push_back(newCarX);
         carY.push_back(newCarY);
