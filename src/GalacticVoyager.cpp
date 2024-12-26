@@ -158,14 +158,25 @@ void update(int value) {
 // Function to spawn new cars every 4 seconds
 void spawnCar(int value) {
     if (!gameOver) {
-        float newCarX = ((rand() % 3) - 1) * 0.6f; // Randomize lane
-        float newCarY = 1.0f;
-        float newCarSpeed = 0.01f + static_cast<float>(rand() % 10) / 1000.0f; // Random speed
+        // Randomize X position across more lanes: 9 positions (-1.0 to 1.0 range)
+        float newCarX = static_cast<float>(rand() % 20 - 10) * 0.1f;  // Randomize across more lanes
+
+        // Randomize Y position: Start from the top and move downward
+        float newCarY = 1.0f;  // Initial spawn at the top
+
+        // Randomize speed: Vary the speed more for unpredictability
+        float newCarSpeed = 0.005f + static_cast<float>(rand() % 30) / 1000.0f;  // Speed from 0.005 to 0.035
+
+        // Add car properties to the vectors
         carX.push_back(newCarX);
         carY.push_back(newCarY);
         carSpeed.push_back(newCarSpeed);
 
-        glutTimerFunc(4000, spawnCar, 0); // Call spawnCar again after 4 seconds
+        // Randomize the next spawn time between 2 to 5 seconds
+        int nextSpawnTime = 2000 + rand() % 3000;  // Random between 2 and 5 seconds
+
+        // Recursively call spawnCar with a randomized time delay
+        glutTimerFunc(nextSpawnTime, spawnCar, 0);
     }
 }
 
